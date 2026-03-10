@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Boardroom · CTO & Sales Strategy Agent</title>
+
+    <!-- Bootstrap 5 + Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap"
+        rel="stylesheet">
+
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="bg-deep-navy">
+
+    <!-- ── Fullscreen loading overlay ── -->
+    <div id="loadingOverlay" class="loading-overlay d-none">
+        <div class="spinner-border text-light" role="status"></div>
+        <p class="mt-3 text-light">Establishing secure session…</p>
+    </div>
+
+    <!-- ── Retry alert (fixed top) ── -->
+    <div id="retryAlert" class="alert alert-warning fixed-top text-center d-none" role="alert">
+        <span id="retryMessage">Connection lost. Retrying in <span id="retryCountdown">3</span>…</span>
+        <button id="reconnectBtn" class="btn btn-sm btn-outline-warning ms-3 d-none">Reconnect</button>
+    </div>
+
+    <!-- ── Main container ── -->
+    <div class="container d-flex flex-column align-items-center justify-content-center min-vh-100 py-4">
+
+        <!-- Header with status badge -->
+        <div class="d-flex justify-content-between align-items-center w-100 mb-4">
+            <div>
+                <h1 class="display-6 fw-semibold text-light">AI Boardroom</h1>
+                <p class="text-light-emphasis small mb-0">CTO &amp; Sales Strategy Agent</p>
+            </div>
+            <span id="connectionBadge"
+                class="badge bg-secondary-subtle text-secondary px-3 py-2 rounded-pill glow-badge">
+                <span class="live-indicator disconnected"></span> Disconnected
+            </span>
+        </div>
+
+        <!-- Orb -->
+        <div id="orb" class="orb idle my-4">
+            <div class="orb-inner"></div>
+            <div id="orbLabel" class="orb-label text-light">Idle</div>
+        </div>
+
+        <!-- Primary controls -->
+        <div class="d-flex flex-column flex-sm-row gap-3 w-100 justify-content-center">
+            <button id="startCallBtn"
+                class="btn btn-success btn-lg rounded-pill px-5 py-3 d-flex align-items-center justify-content-center gap-2">
+                <i class="bi bi-mic-fill"></i> Start Call
+            </button>
+            <button id="endCallBtn"
+                class="btn btn-danger btn-lg rounded-pill px-5 py-3 d-none align-items-center justify-content-center gap-2">
+                <i class="bi bi-mic-mute-fill"></i> End Call
+            </button>
+        </div>
+
+        <!-- ── Health / Latency Dashboard (Enhancement 5) ── -->
+        <div class="card bg-dark-soft text-light mt-4 w-100 shadow border-0 dash-card-accent" style="max-width: 700px;">
+            <div
+                class="card-header bg-dark-soft border-secondary d-flex justify-content-between align-items-center py-2">
+                <span class="fw-medium small">
+                    <i class="bi bi-activity me-1 text-info"></i>Session Health
+                </span>
+                <button class="btn btn-sm btn-outline-secondary py-0 px-2" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#dashCollapse" aria-expanded="true">
+                    <i class="bi bi-chevron-up"></i>
+                </button>
+            </div>
+            <div class="collapse show" id="dashCollapse">
+                <div class="card-body py-2 px-3">
+                    <div class="row g-2 text-center">
+
+                        <!-- Network RTT -->
+                        <div class="col-6 col-sm-3">
+                            <div class="dash-tile rounded p-2">
+                                <div class="dash-label text-secondary">
+                                    <i class="bi bi-wifi me-1"></i>Network RTT
+                                </div>
+                                <div id="dashNetworkLatency" class="dash-value fw-semibold">
+                                    <span class="text-secondary">—</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Processing latency -->
+                        <div class="col-6 col-sm-3">
+                            <div class="dash-tile rounded p-2">
+                                <div class="dash-label text-secondary">
+                                    <i class="bi bi-cpu me-1"></i>Processing
+                                </div>
+                                <div id="dashProcessingLatency" class="dash-value fw-semibold">
+                                    <span class="text-secondary">—</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Average (combined) latency -->
+                        <div class="col-6 col-sm-3">
+                            <div class="dash-tile rounded p-2">
+                                <div class="dash-label text-secondary">
+                                    <i class="bi bi-bar-chart-line me-1"></i>Avg Total
+                                </div>
+                                <div id="dashAvgLatency" class="dash-value fw-semibold">
+                                    <span class="text-secondary">—</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VAD status -->
+                        <div class="col-6 col-sm-3">
+                            <div class="dash-tile rounded p-2">
+                                <div class="dash-label text-secondary">
+                                    <i class="bi bi-soundwave me-1"></i>Voice Activity
+                                </div>
+                                <div id="dashVadStatus" class="dash-value fw-semibold">
+                                    <span class="text-secondary">○ Silence</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Transcript panel ── -->
+        <div class="card bg-dark-soft text-light mt-3 w-100 shadow-lg border-0" style="max-width: 700px;">
+            <div class="card-header bg-dark-soft border-secondary d-flex justify-content-between align-items-center">
+                <span class="fw-medium">
+                    <i class="bi bi-chat-text me-1"></i>Strategy Transcript
+                </span>
+                <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#transcriptCollapse" aria-expanded="true">
+                    <i class="bi bi-chevron-up"></i>
+                </button>
+            </div>
+            <div class="collapse show" id="transcriptCollapse">
+                <div class="card-body p-0">
+                    <div id="transcriptBody" class="transcript-body p-3">
+                        <div class="text-secondary text-center small py-4">No messages yet. Start a session.</div>
+                    </div>
+                </div>
+                <div
+                    class="card-footer bg-dark-soft border-secondary d-flex justify-content-between align-items-center">
+                    <button id="clearTranscriptBtn" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-trash me-1"></i>Clear session
+                    </button>
+                    <small class="text-secondary" id="latencyBadge">Latency: —</small>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /container -->
+
+    <!-- Bootstrap JS bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

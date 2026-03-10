@@ -1,0 +1,18 @@
+# ai-boardroom/requirements.txt
+# Install with: pip install -r requirements.txt
+
+# ── Web framework ─────────────────────────────────────────────────────────────
+fastapi==0.115.0
+uvicorn[standard]==0.32.0      # [standard] includes uvloop + httptools + websockets
+
+# ── HTTP client (voice_ai.py → Voice.AI REST API) ────────────────────────────
+httpx==0.27.2
+
+# ── LiveKit SDK (voice_stream.py → LiveKit room) ─────────────────────────────
+livekit==1.1.2
+
+# ── Config / environment ──────────────────────────────────────────────────────
+python-dotenv==1.0.1
+
+# ── Dev / hot-reload (run.py uses watchfiles via uvicorn --reload) ────────────
+watchfiles==0.24.0
