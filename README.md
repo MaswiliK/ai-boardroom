@@ -2,6 +2,7 @@
 
 A real-time voice assistant interface powered by **Voice.AI** and **LiveKit**, with a FastAPI backend and a dark-theme browser frontend.
 
+![Boardroom-snippet](assets/voice.ai-agent.png)
 ---
 
 ## Architecture
