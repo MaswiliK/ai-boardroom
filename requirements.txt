@@ -3,13 +3,10 @@
 
 # ── Web framework ─────────────────────────────────────────────────────────────
 fastapi==0.115.0
-uvicorn[standard]==0.32.0      # [standard] includes uvloop + httptools + websockets
+uvicorn[standard]==0.32.0      # [standard] includes uvloop + httptools
 
 # ── HTTP client (voice_ai.py → Voice.AI REST API) ────────────────────────────
 httpx==0.27.2
-
-# ── LiveKit SDK (voice_stream.py → LiveKit room) ─────────────────────────────
-livekit==1.1.2
 
 # ── Config / environment ──────────────────────────────────────────────────────
 python-dotenv==1.0.1

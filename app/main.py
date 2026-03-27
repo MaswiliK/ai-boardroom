@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 
 from app.core.config import settings
-from app.api.routes import health, voice_ai, voice_stream
+from app.api.routes import health, voice_ai
 from app.api.routes.voice_ai import validation_error_handler
 
 logger = logging.getLogger("main")
@@ -21,7 +21,7 @@ app.include_router(voice_ai.router,     tags=["VoiceAI"])
 # FIX 2: voice_stream.router already carries prefix="/api/voice" internally,
 #         so we must NOT add it again here — doing so doubled the path to
 #         /api/voice/api/voice/stream, causing every WebSocket to 404.
-app.include_router(voice_stream.router, tags=["VoiceStream"])
+# voice_stream.py deleted — LiveKit is now handled by the Web SDK in the browser
 
 
 @app.get("/api/config")
@@ -37,4 +37,7 @@ def get_config():
 # FIX 3: mount AFTER all API routes so /api/* is never shadowed.
 #         StaticFiles with html=True already serves index.html for "/",
 #         so the explicit HTMLResponse route is redundant and was unreachable.
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+# Use absolute path so StaticFiles resolves correctly regardless of working directory
+from pathlib import Path
+_FRONTEND = Path(__file__).parent.parent / "frontend"
+app.mount("/", StaticFiles(directory=str(_FRONTEND), html=True), name="frontend")

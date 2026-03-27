@@ -27,7 +27,7 @@ class ConnectionRequest(BaseModel):
     # FIX: Optional[Dict] = {} is a mutable default that Pydantic v2 rejects.
     #      Use Field(default_factory=dict) and fully parameterise the type.
     metadata:    Optional[Dict[str, Any]] = Field(default_factory=dict)
-    environment: Optional[str]            = "development"
+    # environment: Optional[str]            = "development"
 
 
 # ── Validation error logger (attach to app in main.py if needed) ─────────────
@@ -82,14 +82,10 @@ async def get_connection(payload: ConnectionRequest):
         "Content-Type":  "application/json",
     }
     body = {
-        "agent_id": payload.agent_id,
-        # Voice.AI expects metadata as a JSON-encoded STRING, not a dict object
-        "metadata": json.dumps({
-            "session_id": session["session_id"],
-            "agent_name": agent_name,
-            **(payload.metadata or {}),
-        }),
-        "environment": payload.environment,
+        "agent_id":    payload.agent_id,
+        # "environment": payload.environment,
+        # metadata field removed — Voice.AI API no longer accepts it.
+        # session_id and agent_name are tracked locally via session_manager.
     }
 
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -104,9 +100,10 @@ async def get_connection(payload: ConnectionRequest):
         raise HTTPException(status_code=resp.status_code, detail=resp.text)
 
     data             = resp.json()
-    server_url       = data.get("server_url")
+    server_url        = data.get("server_url")
     participant_token = data.get("participant_token")
-    call_id          = data.get("call_id")
+    call_id           = data.get("call_id")
+    end_token         = data.get("end_token")   # SDK needs this to free concurrency slot on disconnect
 
     if not all([server_url, participant_token, call_id]):
         session_manager.end_session(session["session_id"])
@@ -121,6 +118,7 @@ async def get_connection(payload: ConnectionRequest):
         "server_url":        server_url,
         "participant_token": participant_token,
         "call_id":           call_id,
+        "end_token":         end_token,
         "session_id":        session["session_id"],
     }
 

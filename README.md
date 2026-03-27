@@ -1,8 +1,13 @@
 # AI Boardroom
 
-A real-time voice assistant interface powered by **Voice.AI** and **LiveKit**, with a FastAPI backend and a dark-theme browser frontend.
+A real-time AI voice agent interface powered by **Voice.AI** and the **Voice.AI Web SDK**, with a FastAPI backend and a dark-theme browser frontend.
 
-![Boardroom-snippet](assets/voice.ai-agent.png)
+## 🖼️ Snapshots
+
+| IDLE | LIVE |
+|---|---|
+|![Boardroom-snippet](assets/voice.ai-agent-IDLE.png) | ![Boardroom-snippet](assets/voice.ai-agent-LIVE.png) |
+
 ---
 
 ## Architecture
@@ -10,16 +15,20 @@ A real-time voice assistant interface powered by **Voice.AI** and **LiveKit**, w
 ```
 Browser (mic + speaker)
     │
-    │  WebSocket  /api/voice/stream
+    │  REST  /api/voice/connection  ← get credentials (API key stays server-side)
     ▼
-FastAPI Backend
+FastAPI Backend  ──►  Voice.AI REST API
     │
-    │  LiveKit SDK  wss://at.voice.ai/rtc?access_token=…
+    │  credentials (server_url, participant_token, end_token)
     ▼
-Voice.AI Agent (LiveKit room)
+Browser
+    │
+    │  Voice.AI Web SDK  (LiveKit room, direct)
+    ▼
+Voice.AI Agent
 ```
 
-The backend joins the LiveKit room as a participant, bridges PCM audio between the browser and the agent, and forwards state/transcript/latency events back to the frontend.
+The backend's only job is to hold the API key and exchange it for short-lived connection credentials. The browser SDK then connects directly to the Voice.AI agent — mic, audio, VAD, interruptions, and transcription are all handled natively by the SDK.
 
 ---
 
@@ -31,7 +40,6 @@ ai-boardroom/
 │   ├── api/routes/
 │   │   ├── health.py          # GET  /api/health
 │   │   ├── voice_ai.py        # REST: agent-status, connection, end-call, sessions
-│   │   ├── voice_stream.py    # WS   /api/voice/stream  (LiveKit bridge)
 │   │   └── webhooks.py        # POST /api/webhooks/voice/* (wire up when ready)
 │   ├── core/
 │   │   └── config.py          # Settings loaded from .env
@@ -39,10 +47,14 @@ ai-boardroom/
 │   │   ├── session_manager.py # In-memory call session store
 │   │   └── voice_ai_helper.py # Agent info cache
 │   └── main.py
+├── assets/
+│   └── voice.ai-agent.png
 ├── frontend/
 │   ├── index.html
-│   ├── app.js
+│   ├── app.js                 # Voice.AI Web SDK integration
 │   └── styles.css
+├── .gitignore
+├── README.md
 ├── requirements.txt
 └── run.py
 ```
@@ -91,7 +103,7 @@ const AGENT_ID = "your-agent-id-here";
 python run.py
 ```
 
-Open `http://localhost:8080` in a modern browser (Chrome or Edge recommended for Web Audio API support).
+Open `http://localhost:8080` in Chrome or Edge (required for Web Audio API and ESM module support).
 
 ---
 
@@ -101,49 +113,44 @@ Open `http://localhost:8080` in a modern browser (Chrome or Edge recommended for
 |--------|------|-------------|
 | `GET` | `/api/health` | Liveness check |
 | `GET` | `/api/voice/agent-status/{agent_id}` | Fetch agent info from Voice.AI |
-| `POST` | `/api/voice/connection` | Get LiveKit room credentials |
+| `POST` | `/api/voice/connection` | Get session credentials |
 | `POST` | `/api/voice/calls/{call_id}/end` | End a call |
 | `GET` | `/api/voice/sessions/{session_id}` | Debug: inspect a session |
-| `WS` | `/api/voice/stream` | LiveKit audio bridge |
 | `GET` | `/api/config` | Public config for the frontend |
 
 ---
 
 ## Frontend Features
 
+- **Voice.AI Web SDK** — direct browser-to-agent connection, no audio bridge needed
 - **State machine** — `idle → connecting → live → listening → thinking → speaking → error`
-- **LiveKit audio bridge** — PCM-16 at 48 kHz, float32→int16 conversion server-side
-- **Voice Activity Detection (VAD)** — energy-based, only streams PCM when speech detected
-- **Interruptible AI** — user speech cancels playing TTS immediately
 - **Streaming transcript** — partial token bubbles with blinking cursor, committed on final message
-- **Session Health dashboard** — live network RTT (ping/pong), processing latency, VAD status
-- **Sticky session reconnect** — exponential backoff with `session_id` preserved for resume
+- **Session Health dashboard** — processing latency, VAD status via SDK audio level events
+- **Exponential backoff** — up to 3 retries with countdown
 - **Orb animations** — distinct states for idle, listening, thinking, speaking
-- **Mic amplitude visualisation** — orb scales with input RMS
+- **Mic amplitude visualisation** — orb scales with SDK audio level
+- **Concurrency slot management** — `endToken` passed to SDK on disconnect, frees slot immediately
 
 ---
 
-## WebSocket Protocol
+## Agent Configuration
 
-### Browser → Backend
+Voice, VAD, interruptions, and timing are configured on the agent in the Voice.AI dashboard — not in the frontend code. Key parameters:
 
-| Frame | Description |
-|-------|-------------|
-| JSON handshake | `{ server_url, participant_token, call_id, session_id, reconnect }` |
-| Binary | PCM-16 mono 48 kHz mic audio (VAD-gated) |
-| `{ type: "ping" }` | Latency probe |
-| `{ type: "interrupt" }` | Cancel AI speech |
+```json
+{
+  "config": {
+    "prompt": "You are a CTO and Sales Strategy advisor...",
+    "tts_params": { "voice_id": "your-cloned-voice-id" },
+    "allow_interruptions": true,
+    "min_interruption_words": 1,
+    "vad_activation_threshold": 0.5,
+    "min_silence_duration": 0.55
+  }
+}
+```
 
-### Backend → Browser
-
-| Frame | Description |
-|-------|-------------|
-| Binary | PCM-16 mono 48 kHz agent audio |
-| `{ type: "pong" }` | Ping reply |
-| `{ type: "state", state }` | `listening` / `thinking` / `speaking` |
-| `{ type: "partial", sender, text }` | Streaming transcript token |
-| `{ type: "message", sender, text }` | Final transcript message |
-| `{ type: "latency", latency }` | Processing latency in ms |
+To create persona variations, update `AGENT_ID` in `app.js` — the entire stack serves any agent without code changes.
 
 ---
 
